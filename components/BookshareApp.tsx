@@ -174,7 +174,7 @@ export default function BookshareApp() {
       setCoverBlob(null);
       setCoverPreview('');
       goPage('gallery', true);
-      setTimeout(() => loadBooks(), 3000);
+      setTimeout(() => loadBooks(), 1000);
     } catch (err) {
       showToast(err instanceof Error ? err.message : '등록 실패', 'error');
     } finally {
@@ -303,7 +303,7 @@ export default function BookshareApp() {
       });
       showToast('책이 삭제되었어요', 'success');
       setDetailBook(null);
-      setTimeout(() => loadBooks(), 3000);
+      setTimeout(() => loadBooks(), 1000);
     } catch (err) {
       showToast(err instanceof Error ? err.message : '삭제 실패', 'error');
     }

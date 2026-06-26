@@ -185,6 +185,7 @@ export async function writeStore(store: StoreData) {
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
+      cacheControlMaxAge: 0,
     });
     return;
   }
