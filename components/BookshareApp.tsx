@@ -270,9 +270,14 @@ export default function BookshareApp() {
     if (!confirm('정말 이 책을 전시장에서 삭제할까요?')) return;
     try {
       await apiJson(`/api/books/${bookId}`, {
-        method: 'DELETE',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ownerName: name }),
+      });
+      setBooks((prev) => {
+        const next = prev.filter((b) => b.id !== bookId);
+        saveBooksCache(next);
+        return next;
       });
       showToast('책이 삭제되었어요', 'success');
       setDetailBook(null);

@@ -51,6 +51,7 @@ export async function writeStore(store: StoreData) {
     await put(STORE_PATH, JSON.stringify(store), {
       access: 'public',
       addRandomSuffix: false,
+      allowOverwrite: true,
       contentType: 'application/json',
     });
     return;
