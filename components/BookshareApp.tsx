@@ -91,14 +91,14 @@ export default function BookshareApp() {
   }, [books]);
 
   const goPage = useCallback(
-    (next: Page) => {
+    (next: Page, skipLoad = false) => {
       setPage(next);
       window.scrollTo(0, 0);
       const name = getStoredName();
       if (next === 'register' && name) setRegName(name);
       if (next === 'apply' && name) setApplyName(name);
       if (next === 'owner' && name) setOwnerName(name);
-      if (next === 'gallery') loadBooks();
+      if (next === 'gallery' && !skipLoad) loadBooks();
       if (next === 'apply') {
         loadBooks().then(() => {
           setSelectedApply(new Set());
@@ -161,12 +161,20 @@ export default function BookshareApp() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      if (data.book) {
+        setBooks((prev) => {
+          const next = [data.book, ...prev];
+          saveBooksCache(next);
+          return next;
+        });
+      }
       showToast('책이 전시장에 등록되었어요! 📚', 'success');
       setRegTitle('');
       setRegReason('');
       setCoverBlob(null);
       setCoverPreview('');
-      goPage('gallery');
+      goPage('gallery', true);
+      setTimeout(() => loadBooks(), 3000);
     } catch (err) {
       showToast(err instanceof Error ? err.message : '등록 실패', 'error');
     } finally {
@@ -295,7 +303,7 @@ export default function BookshareApp() {
       });
       showToast('책이 삭제되었어요', 'success');
       setDetailBook(null);
-      await loadBooks();
+      setTimeout(() => loadBooks(), 3000);
     } catch (err) {
       showToast(err instanceof Error ? err.message : '삭제 실패', 'error');
     }

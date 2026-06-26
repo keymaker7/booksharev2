@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     const book = await createBook({ ownerName, title, recommendation, coverUrl });
-    return NextResponse.json({ success: true, id: book.id });
+    return NextResponse.json({ success: true, id: book.id, book });
   } catch (err) {
     if (err instanceof StoreReadError) {
       return NextResponse.json({ error: err.message }, { status: 503 });
