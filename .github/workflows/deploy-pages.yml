@@ -37,6 +37,17 @@ jobs:
       - name: Ensure Jekyll is disabled
         run: touch out/.nojekyll
 
+      - name: Tell Vercel to ignore gh-pages branch
+        run: |
+          cat > out/vercel.json <<'EOF'
+          {
+            "$schema": "https://openapi.vercel.sh/vercel.json",
+            "git": {
+              "deploymentEnabled": false
+            }
+          }
+          EOF
+
       - name: Restore API routes
         if: always()
         run: mv /tmp/api_backup app/api
