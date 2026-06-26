@@ -1,13 +1,14 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { apiUrl } from '@/lib/api-base';
 import type { Applicant, Book } from '@/lib/types';
 import { compressCover, getStoredName, saveName } from '@/lib/client-utils';
 
 type Page = 'home' | 'register' | 'gallery' | 'apply' | 'owner';
 
 async function fetchBooks(): Promise<Book[]> {
-  const res = await fetch('/api/books');
+  const res = await fetch(apiUrl('/api/books'));
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '책 목록을 불러올 수 없어요');
   return data;
@@ -124,7 +125,7 @@ export default function BookshareApp() {
       form.append('recommendation', regReason.trim());
       if (coverBlob) form.append('cover', coverBlob, 'cover.jpg');
 
-      const res = await fetch('/api/books', { method: 'POST', body: form });
+      const res = await fetch(apiUrl('/api/books'), { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
@@ -175,7 +176,7 @@ export default function BookshareApp() {
     try {
       saveName(name);
       for (const item of items) {
-        const res = await fetch(`/api/books/${item.bookId}/applicants`, {
+        const res = await fetch(apiUrl(`/api/books/${item.bookId}/applicants`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ applicantName: name, reason: item.reason }),
@@ -203,7 +204,7 @@ export default function BookshareApp() {
     setOwnerLoading(true);
     setOwnerLoaded(false);
     try {
-      const res = await fetch(`/api/books/by-owner?ownerName=${encodeURIComponent(name)}`);
+      const res = await fetch(apiUrl(`/api/books/by-owner?ownerName=${encodeURIComponent(name)}`));
       const myBooks = await res.json();
       if (!res.ok) throw new Error(myBooks.error);
 
@@ -212,7 +213,7 @@ export default function BookshareApp() {
 
       const apps: Record<string, Applicant[]> = {};
       for (const b of open) {
-        const aRes = await fetch(`/api/books/${b.id}/applicants`);
+        const aRes = await fetch(apiUrl(`/api/books/${b.id}/applicants`));
         apps[b.id] = await aRes.json();
       }
       setOwnerApplicants(apps);
@@ -230,7 +231,7 @@ export default function BookshareApp() {
   async function handleSelectApplicant(bookId: string, applicantName: string) {
     if (!confirm(`${applicantName}님에게 이 책을 전달할까요?`)) return;
     try {
-      const res = await fetch(`/api/books/${bookId}/select`, {
+      const res = await fetch(apiUrl(`/api/books/${bookId}/select`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ applicantName, ownerName: ownerName.trim() }),
@@ -252,7 +253,7 @@ export default function BookshareApp() {
     }
     if (!confirm('정말 이 책을 전시장에서 삭제할까요?')) return;
     try {
-      const res = await fetch(`/api/books/${bookId}`, {
+      const res = await fetch(apiUrl(`/api/books/${bookId}`), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ownerName: name }),

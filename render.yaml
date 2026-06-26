@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: booksharev2
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/ping
+    envVars:
+      - key: NODE_VERSION
+        value: 22

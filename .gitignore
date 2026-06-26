@@ -20,3 +20,5 @@ public/uploads/covers/*
 # misc
 .DS_Store
 *.log
+.vercel
+.env*
