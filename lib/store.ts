@@ -24,6 +24,8 @@ const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
 
 const BLOB_READ_RETRIES = 4;
 
+let cachedBlobUrl: string | null = null;
+
 export class StoreReadError extends Error {
   constructor(message = '저장소를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.') {
     super(message);
@@ -98,18 +100,29 @@ function isTransientBlobError(err: unknown): boolean {
   return err instanceof BlobServiceRateLimited || err instanceof BlobServiceNotAvailable;
 }
 
+async function findBlobUrl(token: string): Promise<string | null> {
+  if (cachedBlobUrl) return cachedBlobUrl;
+  const { blobs } = await list({ prefix: STORE_PATH, token, limit: 1 });
+  const blob = blobs.find((b) => b.pathname === STORE_PATH);
+  if (!blob) return null;
+  cachedBlobUrl = blob.url;
+  return blob.url;
+}
+
 async function readBlobJson(): Promise<StoreData> {
   const token = getBlobToken();
 
   for (let attempt = 0; attempt < BLOB_READ_RETRIES; attempt++) {
     try {
-      const { blobs } = await list({ prefix: STORE_PATH, token, limit: 1 });
-      const blob = blobs.find((b) => b.pathname === STORE_PATH);
-      if (!blob) return emptyStore();
+      const blobUrl = await findBlobUrl(token);
+      if (!blobUrl) return emptyStore();
 
-      const res = await fetch(blob.url, { cache: 'no-store' });
+      const res = await fetch(blobUrl, { cache: 'no-store' });
       if (!res.ok) {
-        if (res.status === 404) return emptyStore();
+        if (res.status === 404) {
+          cachedBlobUrl = null;
+          return emptyStore();
+        }
         throw new StoreReadError();
       }
       const text = await res.text();
