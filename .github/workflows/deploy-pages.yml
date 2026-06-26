@@ -34,6 +34,9 @@ jobs:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_API_URL: https://booksharev2.vercel.app
 
+      - name: Ensure Jekyll is disabled
+        run: touch out/.nojekyll
+
       - name: Restore API routes
         if: always()
         run: mv /tmp/api_backup app/api
@@ -45,3 +48,4 @@ jobs:
           branch: gh-pages
           clean: true
           single-commit: true
+          dotfiles: true
