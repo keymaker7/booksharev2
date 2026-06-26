@@ -1,6 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { del, get, put, BlobNotFoundError } from '@vercel/blob';
+import {
+  BlobNotFoundError,
+  BlobServiceNotAvailable,
+  BlobServiceRateLimited,
+  del,
+  get,
+  list,
+  put,
+} from '@vercel/blob';
 import type { Applicant, Book } from './types';
 
 export interface StoreData {
@@ -16,6 +24,7 @@ const lockPath = path.join(dataDir, 'store.lock');
 const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
 
 const MAX_RETRIES = 10;
+const BLOB_READ_RETRIES = 4;
 
 export class StoreReadError extends Error {
   constructor(message = '저장소를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.') {
@@ -25,7 +34,18 @@ export class StoreReadError extends Error {
 }
 
 const emptyStore = (): StoreData => ({ revision: 0, books: [], applicants: [] });
-const useBlob = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+const onVercel = () => Boolean(process.env.VERCEL);
+const useBlobStorage = () => onVercel() || Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+
+function getBlobToken(): string {
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  if (!token) throw new StoreReadError('Blob 저장소 설정이 필요해요');
+  return token;
+}
+
+function blobOptions() {
+  return { access: 'public' as const, token: getBlobToken() };
+}
 
 function normalizeStore(raw: StoreData): StoreData {
   return {
@@ -73,29 +93,76 @@ function isBlobNotFound(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as { name?: string; message?: string };
   if (e.name === 'BlobNotFoundError') return true;
-  return /not found|does not exist/i.test(String(e.message || ''));
+  return /not found|does not exist|404/i.test(String(e.message || ''));
 }
 
-async function readBlobJson(): Promise<StoreData> {
-  const result = await get(STORE_PATH, { access: 'public' });
-  if (!result) return emptyStore();
+function isTransientBlobError(err: unknown): boolean {
+  return err instanceof BlobServiceRateLimited || err instanceof BlobServiceNotAvailable;
+}
+
+async function streamToText(stream: ReadableStream<Uint8Array>): Promise<string> {
+  return new Response(stream).text();
+}
+
+async function parseBlobResult(
+  result: NonNullable<Awaited<ReturnType<typeof get>>>,
+): Promise<StoreData> {
   if (result.statusCode !== 200 || !result.stream) {
     throw new StoreReadError();
   }
-  const text = await new Response(result.stream).text();
+  const text = await streamToText(result.stream);
+  if (!text.trim()) return emptyStore();
   return normalizeStore(JSON.parse(text) as StoreData);
 }
 
-export async function readStore(): Promise<StoreData> {
-  if (useBlob()) {
+async function readBlobJson(): Promise<StoreData> {
+  const options = blobOptions();
+
+  for (let attempt = 0; attempt < BLOB_READ_RETRIES; attempt++) {
     try {
-      return await readBlobJson();
+      const result = await get(STORE_PATH, options);
+      if (result === null) return emptyStore();
+      return await parseBlobResult(result);
     } catch (err) {
       if (isBlobNotFound(err)) return emptyStore();
       if (err instanceof SyntaxError) {
         throw new StoreReadError('저장 데이터 형식 오류예요. 관리자에게 문의해 주세요.');
       }
+      if (isTransientBlobError(err)) {
+        await sleep(250 * (attempt + 1));
+        continue;
+      }
+      if (attempt < BLOB_READ_RETRIES - 1) {
+        await sleep(120 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  try {
+    const { blobs } = await list({ prefix: 'bookshare/', token: getBlobToken() });
+    const blob = blobs.find((item) => item.pathname === STORE_PATH);
+    if (!blob) return emptyStore();
+    const result = await get(blob.url, options);
+    if (result === null) return emptyStore();
+    return await parseBlobResult(result);
+  } catch (err) {
+    if (isBlobNotFound(err)) return emptyStore();
+    throw err;
+  }
+}
+
+export async function readStore(): Promise<StoreData> {
+  if (useBlobStorage()) {
+    try {
+      return await readBlobJson();
+    } catch (err) {
       if (err instanceof StoreReadError) throw err;
+      if (err instanceof SyntaxError) {
+        throw new StoreReadError('저장 데이터 형식 오류예요. 관리자에게 문의해 주세요.');
+      }
+      console.error('readStore blob error:', err);
       throw new StoreReadError();
     }
   }
@@ -116,9 +183,9 @@ export async function readStore(): Promise<StoreData> {
 export async function writeStore(store: StoreData) {
   const payload = normalizeStore(store);
 
-  if (useBlob()) {
+  if (useBlobStorage()) {
     await put(STORE_PATH, JSON.stringify(payload), {
-      access: 'public',
+      ...blobOptions(),
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
@@ -133,7 +200,7 @@ export async function writeStore(store: StoreData) {
 }
 
 export async function updateStore(mutator: (store: StoreData) => void): Promise<StoreData> {
-  if (!useBlob()) {
+  if (!useBlobStorage()) {
     acquireLocalLock();
     try {
       const store = await readStore();
@@ -176,9 +243,9 @@ export async function saveCoverBuffer(buffer: Buffer, contentType: string): Prom
   const ext = contentType === 'image/png' ? 'png' : 'jpg';
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  if (useBlob()) {
+  if (useBlobStorage()) {
     const blob = await put(`bookshare/covers/${filename}`, buffer, {
-      access: 'public',
+      ...blobOptions(),
       contentType,
     });
     return blob.url;
@@ -193,9 +260,9 @@ export async function deleteCoverUrl(coverUrl: string) {
   if (!coverUrl) return;
 
   if (coverUrl.startsWith('http')) {
-    if (useBlob()) {
+    if (useBlobStorage()) {
       try {
-        await del(coverUrl);
+        await del(coverUrl, blobOptions());
       } catch {
         /* ignore */
       }
