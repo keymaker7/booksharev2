@@ -27,11 +27,19 @@ npm run dev
 
 브라우저에서 http://localhost:3000 접속
 
-## 배포 URL
+## 접속 주소
 
-**프로덕션:** https://booksharev2.vercel.app
+| 용도 | URL |
+|------|-----|
+| **학생용** | https://keymaker7.github.io/booksharev2/ |
+| **선생님 관리** | https://keymaker7.github.io/booksharev2/admin |
 
-GitHub push 시 Vercel이 자동 배포합니다. (구 GitHub Pages URL은 Vercel로 리다이렉트)
+### 선생님 관리
+
+- 책·신청 현황, 책 삭제, **CSV 다운로드**, **전체 초기화**
+- 비밀번호 = Vercel `ADMIN_SECRET` (변경: Vercel → Settings → Environment Variables)
+
+API: https://booksharev2.vercel.app — GitHub push 시 Vercel·Pages 자동 배포
 
 ## 배포 (Vercel / Railway 등)
 
