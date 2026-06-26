@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#F4F0E8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>📚 마음 나눔 책장</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F4F0E8;
+      --bg-deep: #EBE4D8;
+      --paper: #FFFCF7;
+      --shelf: #D4C4A8;
+      --text: #2A2419;
+      --text-muted: #6B6358;
+      --text-light: #9A9084;
+      --forest: #3D6B59;
+      --forest-dark: #2E5244;
+      --forest-soft: rgba(61, 107, 89, 0.12);
+      --amber: #C9853E;
+      --amber-soft: rgba(201, 133, 62, 0.14);
+      --rose: #C45C5C;
+      --rose-soft: rgba(196, 92, 92, 0.12);
+      --gold: #B8956A;
+      --border: rgba(42, 36, 25, 0.1);
+      --shadow: 0 4px 20px rgba(42, 36, 25, 0.08);
+      --shadow-lg: 0 12px 40px rgba(42, 36, 25, 0.14);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-lg: 24px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --font: 'Noto Sans KR', -apple-system, sans-serif;
+      --font-serif: 'Gowun Batang', Georgia, serif;
+      --ease: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      position: relative;
+    }
+    @media (min-width: 768px) { .app { max-width: 900px; padding: 0 24px; } }
+
+    /* ── 페이지 ── */
+    .page { display: none; animation: fadeIn 0.35s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* ── 서브 헤더 ── */
+    .sub-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: calc(12px + var(--safe-top)) 20px 12px;
+      background: rgba(244, 240, 232, 0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .back-btn {
+      width: 40px; height: 40px;
+      border: none; border-radius: var(--radius-sm);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .back-btn:active { transform: scale(0.94); }
+    .sub-header h2 {
+      font-size: 1.0625rem;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .page-body {
+      padding: 20px 20px calc(24px + var(--safe-bottom));
+    }
+
+    /* ── 홈 ── */
+    .home-hero {
+      padding: calc(28px + var(--safe-top)) 24px 32px;
+      text-align: center;
+      background: linear-gradient(180deg, var(--paper) 0%, var(--bg) 100%);
+      border-bottom: 3px solid var(--shelf);
+    }
+    .home-logo {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.08));
+    }
+    .home-title {
+      font-family: var(--font-serif);
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--forest-dark);
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .home-sub {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+    .home-intro {
+      background: var(--forest-soft);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      text-align: left;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.75;
+      border-left: 3px solid var(--forest);
+    }
+
+    .menu-list {
+      padding: 24px 20px calc(24px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .menu-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      background: var(--paper);
+      border: none;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      text-align: left;
+      font-family: var(--font);
+      transition: transform var(--ease), box-shadow var(--ease);
+      width: 100%;
+    }
+    .menu-card:active { transform: scale(0.98); }
+    @media (hover: hover) {
+      .menu-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    }
+    .menu-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .menu-icon.green { background: var(--forest-soft); }
+    .menu-icon.amber { background: var(--amber-soft); }
+    .menu-icon.rose { background: var(--rose-soft); }
+    .menu-icon.gold { background: rgba(184, 149, 106, 0.18); }
+    .menu-text h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .menu-text p {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .menu-arrow {
+      margin-left: auto;
+      color: var(--text-light);
+      font-size: 1.25rem;
+    }
+
+    /* ── 폼 ── */
+    .section-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 1rem;
+      background: var(--paper);
+      color: var(--text);
+      -webkit-appearance: none;
+    }
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--forest);
+      box-shadow: 0 0 0 3px var(--forest-soft);
+    }
+    .form-textarea { resize: vertical; min-height: 100px; line-height: 1.65; }
+
+    .cover-upload {
+      position: relative;
+      aspect-ratio: 3/4;
+      max-height: 260px;
+      margin: 0 auto;
+      border: 2px dashed var(--shelf);
+      border-radius: var(--radius);
+      background: var(--paper);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .cover-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .cover-placeholder {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--text-muted);
+      padding: 20px;
+      text-align: center;
+    }
+    .cover-placeholder span:first-child { font-size: 2.5rem; }
+    .cover-preview { width: 100%; height: 100%; object-fit: cover; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px 24px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 52px;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-primary { background: var(--forest); color: white; box-shadow: 0 4px 16px rgba(61,107,89,0.3); }
+    .btn-amber { background: var(--amber); color: white; box-shadow: 0 4px 16px rgba(201,133,62,0.3); }
+    .btn-rose { background: var(--rose); color: white; }
+    .btn-outline {
+      background: var(--paper);
+      color: var(--forest);
+      border: 1.5px solid var(--forest);
+    }
+
+    /* ── 전시장 ── */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (min-width: 600px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .exhibit-card {
+      background: var(--paper);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform var(--ease);
+      border: none;
+      text-align: left;
+      font-family: var(--font);
+      width: 100%;
+      padding: 0;
+    }
+    .exhibit-card:active { transform: scale(0.97); }
+    .exhibit-cover {
+      aspect-ratio: 3/4;
+      background: var(--bg-deep);
+      position: relative;
+      overflow: hidden;
+    }
+    .exhibit-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .exhibit-cover .placeholder {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      color: var(--text-light);
+    }
+    .exhibit-badge {
+      position: absolute;
+      top: 8px; right: 8px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 0.625rem;
+      font-weight: 700;
+      background: var(--forest);
+      color: white;
+    }
+    .exhibit-badge.done { background: var(--text-light); }
+    .exhibit-info { padding: 12px; }
+    .exhibit-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .exhibit-owner { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ── 신청 (다중 선택) ── */
+    .apply-list { display: flex; flex-direction: column; gap: 12px; }
+    .apply-item {
+      background: var(--paper);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 2px solid transparent;
+      transition: border-color var(--ease);
+    }
+    .apply-item.selected { border-color: var(--rose); }
+    .apply-item-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      cursor: pointer;
+    }
+    .apply-check {
+      width: 24px; height: 24px;
+      border: 2px solid var(--shelf);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.875rem;
+      transition: all var(--ease);
+    }
+    .apply-item.selected .apply-check {
+      background: var(--rose);
+      border-color: var(--rose);
+      color: white;
+    }
+    .apply-thumb {
+      width: 48px; height: 64px;
+      border-radius: 6px;
+      background: var(--bg-deep);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .apply-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .apply-meta { flex: 1; min-width: 0; }
+    .apply-meta h4 { font-size: 0.875rem; font-weight: 600; }
+    .apply-meta p { font-size: 0.75rem; color: var(--text-muted); }
+    .apply-reason {
+      display: none;
+      padding: 0 14px 14px;
+    }
+    .apply-item.selected .apply-reason { display: block; }
+    .apply-reason textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 0.875rem;
+      background: var(--bg);
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.6;
+    }
+    .apply-reason .hint {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-top: 6px;
+    }
+
+    /* ── 주인 찾기 ── */
+    .owner-book {
+      background: var(--paper);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .owner-book-head {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .owner-cover {
+      width: 64px; height: 86px;
+      border-radius: 8px;
+      background: var(--bg-deep);
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .owner-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .owner-book-head h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .owner-book-head p { font-size: 0.8125rem; color: var(--text-muted); }
+
+    .applicant-card {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 10px;
+    }
+    .applicant-name {
+      font-weight: 700;
+      font-size: 0.9375rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .applicant-name::before { content: '💬'; font-size: 0.875rem; }
+    .applicant-reason {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      font-style: italic;
+      padding-left: 4px;
+      border-left: 2px solid var(--amber);
+    }
+    .applicant-card .btn {
+      margin-top: 12px;
+      padding: 12px;
+      min-height: 44px;
+      font-size: 0.875rem;
+    }
+
+    .empty-box {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-box .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.6; }
+    .empty-box h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .empty-box p { font-size: 0.875rem; line-height: 1.6; }
+
+    .loading-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--forest);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 시트 / 모달 ── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(42, 36, 25, 0.5);
+      z-index: 200;
+      opacity: 0; visibility: hidden;
+      transition: opacity var(--ease), visibility var(--ease);
+    }
+    .overlay.open { opacity: 1; visibility: visible; }
+
+    .sheet {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%) translateY(100%);
+      width: 100%; max-width: 520px;
+      max-height: 90dvh;
+      background: var(--paper);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      z-index: 300;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .sheet.open { transform: translateX(-50%) translateY(0); }
+    @media (min-width: 768px) {
+      .sheet {
+        top: 50%; bottom: auto;
+        max-width: 480px;
+        border-radius: var(--radius-lg);
+        transform: translate(-50%, -50%) scale(0.95);
+        opacity: 0;
+      }
+      .sheet.open { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    .sheet-handle {
+      width: 36px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 10px auto 0;
+    }
+    @media (min-width: 768px) { .sheet-handle { display: none; } }
+    .sheet-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sheet-header h3 { font-size: 1.0625rem; font-weight: 700; }
+    .sheet-close {
+      width: 36px; height: 36px;
+      border: none; border-radius: 50%;
+      background: var(--bg);
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .sheet-body {
+      flex: 1; overflow-y: auto;
+      padding: 20px;
+      padding-bottom: calc(20px + var(--safe-bottom));
+      -webkit-overflow-scrolling: touch;
+    }
+    .detail-cover {
+      width: 100%;
+      max-width: 220px;
+      margin: 0 auto 20px;
+      aspect-ratio: 3/4;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: var(--bg-deep);
+    }
+    .detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .detail-cover .ph {
+      height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 4rem;
+    }
+    .detail-title {
+      font-family: var(--font-serif);
+      font-size: 1.375rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .detail-owner {
+      text-align: center;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .reason-box {
+      background: var(--forest-soft);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .reason-box h4 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--forest);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .reason-box p { font-size: 0.9375rem; line-height: 1.75; }
+
+    /* ── 축하 화면 ── */
+    .celebrate {
+      position: fixed; inset: 0;
+      z-index: 400;
+      background: var(--paper);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .celebrate.open { display: flex; animation: fadeIn 0.5s ease; }
+    .celebrate-icon { font-size: 4rem; margin-bottom: 24px; animation: bounce 0.6s ease; }
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+    .celebrate h2 {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      color: var(--forest-dark);
+    }
+    .celebrate p { font-size: 0.9375rem; color: var(--text-muted); margin-bottom: 32px; }
+
+    .name-bar {
+      background: var(--paper);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow);
+    }
+    .name-bar label { font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
+    .name-bar input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-family: var(--font);
+      font-size: 0.9375rem;
+      outline: none;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: calc(24px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 100px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      z-index: 500;
+      opacity: 0;
+      transition: transform 0.35s, opacity 0.35s;
+      white-space: nowrap;
+      max-width: calc(100% - 40px);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.error { background: var(--rose); }
+    .toast.success { background: var(--forest); }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ═══ 홈 ═══ -->
+    <div class="page active" id="pageHome">
+      <header class="home-hero">
+        <div class="home-logo">📚</div>
+        <h1 class="home-title">마음 나눔 책장</h1>
+        <p class="home-sub">책을 나누고, 마음을 전하는 작은 도서관</p>
+        <div class="home-intro">
+          읽은 책을 친구들에게 소개하고, 읽고 싶은 이유를 진심을 담아 전하며,
+          책과 함께 마음까지 이어지는 책 나눔 플랫폼이에요.
+        </div>
+      </header>
+      <nav class="menu-list">
+        <button class="menu-card" data-go="register">
+          <div class="menu-icon green">📖</div>
+          <div class="menu-text">
+            <h3>나의 책 소개하기</h3>
+            <p>내가 좋아하는 책을 친구들에게 소개해 보세요</p>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-card" data-go="gallery">
+          <div class="menu-icon amber">📚</div>
+          <div class="menu-text">
+            <h3>책 전시장</h3>
+            <p>친구들의 책 이야기를 둘러보세요</p>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-card" data-go="apply">
+          <div class="menu-icon rose">❤️</div>
+          <div class="menu-text">
+            <h3>읽고 싶은 마음 전하기</h3>
+            <p>마음에 드는 책에 당신의 이야기를 들려주세요</p>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+        <button class="menu-card" data-go="owner">
+          <div class="menu-icon gold">🎁</div>
+          <div class="menu-text">
+            <h3>새로운 주인 찾기</h3>
+            <p>가장 소중히 읽어 줄 친구를 선택하세요</p>
+          </div>
+          <span class="menu-arrow">›</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ═══ ① 나의 책 소개하기 ═══ -->
+    <div class="page" id="pageRegister">
+      <div class="sub-header">
+        <button class="back-btn" data-back aria-label="뒤로">←</button>
+        <h2>📖 나의 책 소개하기</h2>
+      </div>
+      <div class="page-body">
+        <p class="section-label">내가 좋아하는 책을 친구들에게 소개해 보세요.<br>책 표지를 직접 촬영하여 등록할 수 있어요.</p>
+        <form id="registerForm">
+          <div class="form-group">
+            <label>책 표지 사진</label>
+            <div class="cover-upload" id="coverUpload">
+              <input type="file" accept="image/*" capture="environment" id="coverInput">
+              <div class="cover-placeholder" id="coverPlaceholder">
+                <span>📷</span>
+                <span>탭하여 표지 촬영</span>
+              </div>
+              <img class="cover-preview" id="coverPreview" style="display:none" alt="표지">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="regName">내 이름 (등록자)</label>
+            <input class="form-input" type="text" id="regName" placeholder="예: 김서연" required maxlength="20">
+          </div>
+          <div class="form-group">
+            <label for="regTitle">책 제목</label>
+            <input class="form-input" type="text" id="regTitle" placeholder="예: 어린 왕자" required maxlength="100">
+          </div>
+          <div class="form-group">
+            <label for="regReason">추천하는 이유</label>
+            <textarea class="form-textarea" id="regReason" placeholder="왜 이 책을 친구들에게 추천하고 싶은지 적어 주세요" required maxlength="500"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="regSubmit">책 등록하기</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══ ② 책 전시장 ═══ -->
+    <div class="page" id="pageGallery">
+      <div class="sub-header">
+        <button class="back-btn" data-back aria-label="뒤로">←</button>
+        <h2>📚 책 전시장</h2>
+      </div>
+      <div class="page-body">
+        <p class="section-label">친구들의 책 이야기를 둘러보세요.<br>책을 누르면 추천 이유를 볼 수 있어요.</p>
+        <div id="galleryList">
+          <div class="loading-box"><div class="spinner"></div><p>전시장을 준비하고 있어요...</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ③ 읽고 싶은 마음 전하기 ═══ -->
+    <div class="page" id="pageApply">
+      <div class="sub-header">
+        <button class="back-btn" data-back aria-label="뒤로">←</button>
+        <h2>❤️ 읽고 싶은 마음 전하기</h2>
+      </div>
+      <div class="page-body">
+        <div class="name-bar">
+          <label for="applyName">내 이름</label>
+          <input type="text" id="applyName" placeholder="이름을 입력하세요" maxlength="20">
+        </div>
+        <p class="section-label">마음에 드는 책을 선택하고, 읽고 싶은 이유를 적어 주세요.<br>여러 권 선택 가능해요. (권마다 이유 필요)</p>
+        <div id="applyList">
+          <div class="loading-box"><div class="spinner"></div></div>
+        </div>
+        <button class="btn btn-rose" id="applySubmit" style="margin-top:20px;display:none">마음 전하기 💌</button>
+      </div>
+    </div>
+
+    <!-- ═══ ④ 새로운 주인 찾기 ═══ -->
+    <div class="page" id="pageOwner">
+      <div class="sub-header">
+        <button class="back-btn" data-back aria-label="뒤로">←</button>
+        <h2>🎁 새로운 주인 찾기</h2>
+      </div>
+      <div class="page-body">
+        <div class="name-bar">
+          <label for="ownerName">내 이름</label>
+          <input type="text" id="ownerName" placeholder="등록한 이름을 입력하세요" maxlength="20">
+        </div>
+        <p class="section-label">내가 등록한 책에 신청한 친구들의 글을 읽고,<br>마음이 가장 전달된 친구를 선택하세요.</p>
+        <button class="btn btn-outline" id="ownerLoad" style="margin-bottom:20px">내 책 불러오기</button>
+        <div id="ownerList"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 전시 상세 시트 -->
+  <div class="overlay" id="detailOverlay"></div>
+  <div class="sheet" id="detailSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3>책 이야기</h3>
+      <button class="sheet-close" id="detailClose">✕</button>
+    </div>
+    <div class="sheet-body" id="detailBody"></div>
+  </div>
+
+  <!-- 축하 화면 -->
+  <div class="celebrate" id="celebrate">
+    <div class="celebrate-icon">🎉</div>
+    <h2 id="celebrateText"></h2>
+    <p>따뜻한 나눔이 완성되었어요!</p>
+    <button class="btn btn-primary" id="celebrateOk" style="max-width:240px">홈으로 돌아가기</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxcuYTkIypEXxoxkgHgLqojPehyWr3AuJylA-czxuXca3YORpjzrZnXRe5VGp1Azzuu/exec';
+
+    let books = [];
+    let coverBase64 = '';
+    const selectedApply = new Map();
+
+    // ── API ──
+    async function apiGet(action, params = {}) {
+      const qs = new URLSearchParams({ action, ...params });
+      const res = await fetch(`${API_URL}?${qs}`);
+      return res.json();
+    }
+    async function apiPost(data) {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(data)
+      });
+      return res.json();
+    }
+    const isDemo = () => API_URL === 'YOUR_GAS_WEB_APP_URL';
+
+    // ── 유틸 ──
+    function esc(s) {
+      if (!s) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+    function toast(msg, type = '') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show' + (type ? ' ' + type : '');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), 3000);
+    }
+    function getStoredName() { return localStorage.getItem('bookshare_name') || ''; }
+    function saveName(name) { if (name) localStorage.setItem('bookshare_name', name); }
+
+    // ── 네비 ──
+    function goPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page' + id.charAt(0).toUpperCase() + id.slice(1)).classList.add('active');
+      window.scrollTo(0, 0);
+      if (id === 'gallery') loadGallery();
+      if (id === 'apply') loadApply();
+      if (id === 'register') {
+        const n = getStoredName();
+        if (n) document.getElementById('regName').value = n;
+      }
+      if (id === 'owner') {
+        const n = getStoredName();
+        if (n) document.getElementById('ownerName').value = n;
+      }
+    }
+
+    document.querySelectorAll('[data-go]').forEach(el => {
+      el.addEventListener('click', () => goPage(el.dataset.go));
+    });
+    document.querySelectorAll('[data-back]').forEach(el => {
+      el.addEventListener('click', () => goPage('home'));
+    });
+
+    // ── 데모 데이터 ──
+    function getDemoBooks() {
+      return [
+        { id: 'd1', ownerName: '김서연', title: '어린 왕자', coverUrl: '', recommendation: '어른이 되어도 잃지 말아야 할 순수함을 알려주는 책이에요. 친구에게 꼭 추천하고 싶어요!', status: 'open', selectedApplicant: '' },
+        { id: 'd2', ownerName: '이준호', title: '데미안', coverUrl: '', recommendation: '자아를 찾아가는 여정을 그린 책입니다. 고민이 많을 때 위로가 됩니다.', status: 'open', selectedApplicant: '' },
+        { id: 'd3', ownerName: '박민지', title: '숲속의 작은 집', coverUrl: '', recommendation: '동물들과 자연의 이야기가 따뜻하게 펼쳐져요. 동물을 좋아하는 친구에게 추천!', status: 'open', selectedApplicant: '' },
+        { id: 'd4', ownerName: '최유진', title: '미드나잇 라이브러리', coverUrl: '', recommendation: '인생의 다른 가능성을 만나보는 책이에요.', status: 'closed', selectedApplicant: '이다은' }
+      ];
+    }
+
+    async function loadBooks() {
+      try {
+        if (isDemo()) {
+          books = getDemoBooks();
+        } else {
+          const data = await apiGet('getBooks');
+          if (data.error) throw new Error(data.error);
+          books = data;
+        }
+      } catch (err) {
+        toast(err.message, 'error');
+        books = isDemo() ? getDemoBooks() : [];
+      }
+    }
+
+    // ── ② 전시장 ──
+    async function loadGallery() {
+      const box = document.getElementById('galleryList');
+      box.innerHTML = '<div class="loading-box"><div class="spinner"></div></div>';
+      await loadBooks();
+
+      if (!books.length) {
+        box.innerHTML = '<div class="empty-box"><div class="icon">📚</div><h3>아직 전시된 책이 없어요</h3><p>첫 번째 책을 등록해 보세요!</p></div>';
+        return;
+      }
+
+      box.innerHTML = `<div class="gallery-grid">${books.map(b => `
+        <button class="exhibit-card" onclick="openDetail('${b.id}')">
+          <div class="exhibit-cover">
+            ${b.coverUrl
+              ? `<img src="${esc(b.coverUrl)}" alt="${esc(b.title)}" loading="lazy">`
+              : '<div class="placeholder">📖</div>'}
+            <span class="exhibit-badge ${b.status === 'closed' ? 'done' : ''}">${b.status === 'open' ? '나눔 중' : '완료'}</span>
+          </div>
+          <div class="exhibit-info">
+            <div class="exhibit-title">${esc(b.title)}</div>
+            <div class="exhibit-owner">${esc(b.ownerName)}</div>
+          </div>
+        </button>
+      `).join('')}</div>`;
+    }
+
+    function openDetail(id) {
+      const b = books.find(x => x.id === id);
+      if (!b) return;
+      document.getElementById('detailBody').innerHTML = `
+        <div class="detail-cover">
+          ${b.coverUrl ? `<img src="${esc(b.coverUrl)}" alt="">` : '<div class="ph">📖</div>'}
+        </div>
+        <h2 class="detail-title">${esc(b.title)}</h2>
+        <p class="detail-owner">등록자 · ${esc(b.ownerName)}</p>
+        <div class="reason-box">
+          <h4>추천하는 이유</h4>
+          <p>${esc(b.recommendation) || '등록자가 추천 이유를 적지 않았어요.'}</p>
+        </div>
+        ${b.status === 'closed' && b.selectedApplicant ? `
+          <div class="reason-box" style="background:var(--amber-soft)">
+            <h4 style="color:var(--amber)">🎁 전달 완료</h4>
+            <p>${esc(b.selectedApplicant)}님께 전달되었어요</p>
+          </div>` : ''}
+      `;
+      document.getElementById('detailOverlay').classList.add('open');
+      document.getElementById('detailSheet').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeDetail() {
+      document.getElementById('detailOverlay').classList.remove('open');
+      document.getElementById('detailSheet').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('detailClose').addEventListener('click', closeDetail);
+    document.getElementById('detailOverlay').addEventListener('click', closeDetail);
+
+    // ── ① 등록 ──
+    document.getElementById('coverInput').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { toast('5MB 이하만 가능해요', 'error'); return; }
+      const reader = new FileReader();
+      reader.onload = ev => {
+        coverBase64 = ev.target.result;
+        const img = document.getElementById('coverPreview');
+        img.src = coverBase64;
+        img.style.display = 'block';
+        document.getElementById('coverPlaceholder').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('regSubmit');
+      btn.disabled = true;
+      btn.textContent = '등록 중...';
+
+      const name = document.getElementById('regName').value.trim();
+      const data = {
+        action: 'addBook',
+        ownerName: name,
+        title: document.getElementById('regTitle').value.trim(),
+        recommendation: document.getElementById('regReason').value.trim(),
+        coverBase64
+      };
+
+      try {
+        saveName(name);
+        if (!isDemo()) {
+          const res = await apiPost(data);
+          if (res.error) throw new Error(res.error);
+        } else {
+          books.unshift({ id: 'd' + Date.now(), ...data, coverUrl: coverBase64, status: 'open', selectedApplicant: '' });
+        }
+        toast('책이 전시장에 등록되었어요! 📚', 'success');
+        document.getElementById('registerForm').reset();
+        coverBase64 = '';
+        document.getElementById('coverPreview').style.display = 'none';
+        document.getElementById('coverPlaceholder').style.display = 'flex';
+        goPage('gallery');
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '책 등록하기';
+      }
+    });
+
+    // ── ③ 마음 전하기 ──
+    async function loadApply() {
+      const box = document.getElementById('applyList');
+      const btn = document.getElementById('applySubmit');
+      box.innerHTML = '<div class="loading-box"><div class="spinner"></div></div>';
+      btn.style.display = 'none';
+      selectedApply.clear();
+
+      const name = getStoredName();
+      if (name) document.getElementById('applyName').value = name;
+
+      await loadBooks();
+      const open = books.filter(b => b.status === 'open');
+
+      if (!open.length) {
+        box.innerHTML = '<div class="empty-box"><div class="icon">❤️</div><h3>신청할 수 있는 책이 없어요</h3><p>전시장에 나눔 중인 책이 없습니다</p></div>';
+        return;
+      }
+
+      box.innerHTML = `<div class="apply-list">${open.map(b => `
+        <div class="apply-item" id="apply-${b.id}" data-id="${b.id}">
+          <div class="apply-item-head" onclick="toggleApply('${b.id}')">
+            <div class="apply-check" id="check-${b.id}"></div>
+            <div class="apply-thumb">
+              ${b.coverUrl ? `<img src="${esc(b.coverUrl)}" alt="">` : '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:1.25rem">📖</div>'}
+            </div>
+            <div class="apply-meta">
+              <h4>${esc(b.title)}</h4>
+              <p>${esc(b.ownerName)}</p>
+            </div>
+          </div>
+          <div class="apply-reason">
+            <textarea id="reason-${b.id}" placeholder="예: 저는 동물을 좋아해서 꼭 읽어보고 싶어요." maxlength="500"></textarea>
+            <p class="hint">왜 이 책을 읽고 싶은지 진심을 담아 적어 주세요</p>
+          </div>
+        </div>
+      `).join('')}</div>`;
+      btn.style.display = 'block';
+    }
+
+    function toggleApply(id) {
+      const el = document.getElementById('apply-' + id);
+      const check = document.getElementById('check-' + id);
+      if (selectedApply.has(id)) {
+        selectedApply.delete(id);
+        el.classList.remove('selected');
+        check.textContent = '';
+      } else {
+        selectedApply.set(id, '');
+        el.classList.add('selected');
+        check.textContent = '✓';
+      }
+    }
+
+    document.getElementById('applySubmit').addEventListener('click', async () => {
+      const name = document.getElementById('applyName').value.trim();
+      if (!name) { toast('이름을 입력해 주세요', 'error'); return; }
+      if (!selectedApply.size) { toast('책을 하나 이상 선택해 주세요', 'error'); return; }
+
+      const items = [];
+      for (const id of selectedApply.keys()) {
+        const reason = document.getElementById('reason-' + id).value.trim();
+        if (!reason) {
+          toast('선택한 모든 책에 이유를 적어 주세요', 'error');
+          document.getElementById('apply-' + id).scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        items.push({ bookId: id, applicantName: name, reason });
+      }
+
+      const btn = document.getElementById('applySubmit');
+      btn.disabled = true;
+      btn.textContent = '전송 중...';
+
+      try {
+        saveName(name);
+        if (!isDemo()) {
+          for (const item of items) {
+            const res = await apiPost({ action: 'addApplicant', ...item });
+            if (res.error) throw new Error(res.error);
+          }
+        }
+        toast(`${items.length}권에 마음을 전했어요! 💌`, 'success');
+        selectedApply.clear();
+        goPage('home');
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '마음 전하기 💌';
+      }
+    });
+
+    // ── ④ 주인 찾기 ──
+    document.getElementById('ownerLoad').addEventListener('click', loadOwner);
+
+    async function loadOwner() {
+      const name = document.getElementById('ownerName').value.trim();
+      if (!name) { toast('이름을 입력해 주세요', 'error'); return; }
+      saveName(name);
+
+      const box = document.getElementById('ownerList');
+      box.innerHTML = '<div class="loading-box"><div class="spinner"></div></div>';
+
+      let myBooks;
+      try {
+        if (isDemo()) {
+          await loadBooks();
+          myBooks = books.filter(b => b.ownerName === name);
+        } else {
+          const data = await apiGet('getBooksByOwner', { ownerName: name });
+          if (data.error) throw new Error(data.error);
+          myBooks = data;
+          books = await apiGet('getBooks');
+        }
+      } catch (err) {
+        box.innerHTML = `<div class="empty-box"><p>${esc(err.message)}</p></div>`;
+        return;
+      }
+
+      const openBooks = myBooks.filter(b => b.status === 'open');
+      if (!openBooks.length) {
+        box.innerHTML = '<div class="empty-box"><div class="icon">📖</div><h3>나눔 중인 내 책이 없어요</h3><p>책을 등록하거나, 이미 전달을 완료했을 수 있어요</p></div>';
+        return;
+      }
+
+      let html = '';
+      for (const b of openBooks) {
+        let applicants = [];
+        try {
+          if (isDemo()) {
+            applicants = [
+              { applicantName: '김민수', reason: '저도 이 책을 읽고 용기를 얻고 싶어요.' },
+              { applicantName: '이다은', reason: '환경 문제에 관심이 많아서 꼭 읽어보고 싶습니다.' }
+            ].filter((_, i) => b.id !== 'd4' || i === 1);
+            if (b.id === 'd1') applicants = [{ applicantName: '김민수', reason: '저는 동물을 좋아해서 꼭 읽어보고 싶어요.' }];
+          } else {
+            applicants = await apiGet('getApplicants', { bookId: b.id });
+          }
+        } catch (_) {}
+
+        html += `
+          <div class="owner-book">
+            <div class="owner-book-head">
+              <div class="owner-cover">
+                ${b.coverUrl ? `<img src="${esc(b.coverUrl)}" alt="">` : '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:1.5rem">📖</div>'}
+              </div>
+              <div>
+                <h3>${esc(b.title)}</h3>
+                <p>신청 ${applicants.length}명</p>
+              </div>
+            </div>
+            ${applicants.length ? applicants.map(a => `
+              <div class="applicant-card">
+                <div class="applicant-name">${esc(a.applicantName)}</div>
+                <div class="applicant-reason">"${esc(a.reason)}"</div>
+                <button class="btn btn-primary" onclick="selectOwner('${b.id}','${esc(a.applicantName)}','${esc(b.ownerName)}')">이 친구에게 전달 🎁</button>
+              </div>
+            `).join('') : '<p style="font-size:0.875rem;color:var(--text-muted);text-align:center;padding:12px">아직 신청한 친구가 없어요</p>'}
+          </div>`;
+      }
+      box.innerHTML = html;
+    }
+
+    async function selectOwner(bookId, applicantName, ownerName) {
+      if (!confirm(`${applicantName}님에게 이 책을 전달할까요?`)) return;
+      try {
+        if (!isDemo()) {
+          const res = await apiPost({ action: 'selectApplicant', bookId, applicantName });
+          if (res.error) throw new Error(res.error);
+        } else {
+          const b = books.find(x => x.id === bookId);
+          if (b) { b.status = 'closed'; b.selectedApplicant = applicantName; }
+        }
+        document.getElementById('celebrateText').innerHTML =
+          `<span style="color:var(--amber)">${esc(ownerName)}</span>님의 책은<br><span style="color:var(--forest)">${esc(applicantName)}</span>님에게 전달됩니다.`;
+        document.getElementById('celebrate').classList.add('open');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
+
+    document.getElementById('celebrateOk').addEventListener('click', () => {
+      document.getElementById('celebrate').classList.remove('open');
+      goPage('home');
+    });
+
+    // ── 이름 입력 저장 ──
+    ['applyName', 'ownerName', 'regName'].forEach(id => {
+      document.getElementById(id).addEventListener('change', e => saveName(e.target.value.trim()));
+    });
+
+    loadBooks();
+  </script>
+</body>
+</html>
