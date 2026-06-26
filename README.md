@@ -27,6 +27,12 @@ npm run dev
 
 브라우저에서 http://localhost:3000 접속
 
+## 배포 URL
+
+**프로덕션:** https://booksharev2.vercel.app
+
+GitHub push 시 Vercel이 자동 배포합니다. (구 GitHub Pages URL은 Vercel로 리다이렉트)
+
 ## 배포 (Vercel / Railway 등)
 
 SQLite 파일은 **서버리스(Vercel)에 그대로 쓰기 어렵습니다.** JSON DB + 업로드 폴더도 **쓰기 가능한 디스크**가 필요합니다. 아래 중 하나를 선택하세요.
