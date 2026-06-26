@@ -5,7 +5,6 @@ import {
   BlobServiceNotAvailable,
   BlobServiceRateLimited,
   del,
-  get,
   list,
   put,
 } from '@vercel/blob';
@@ -23,7 +22,6 @@ const storePath = path.join(dataDir, 'store.json');
 const lockPath = path.join(dataDir, 'store.lock');
 const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
 
-const MAX_RETRIES = 10;
 const BLOB_READ_RETRIES = 4;
 
 export class StoreReadError extends Error {
@@ -100,30 +98,25 @@ function isTransientBlobError(err: unknown): boolean {
   return err instanceof BlobServiceRateLimited || err instanceof BlobServiceNotAvailable;
 }
 
-async function streamToText(stream: ReadableStream<Uint8Array>): Promise<string> {
-  return new Response(stream).text();
-}
-
-async function parseBlobResult(
-  result: NonNullable<Awaited<ReturnType<typeof get>>>,
-): Promise<StoreData> {
-  if (result.statusCode !== 200 || !result.stream) {
-    throw new StoreReadError();
-  }
-  const text = await streamToText(result.stream);
-  if (!text.trim()) return emptyStore();
-  return normalizeStore(JSON.parse(text) as StoreData);
-}
-
 async function readBlobJson(): Promise<StoreData> {
-  const options = blobOptions();
+  const token = getBlobToken();
 
   for (let attempt = 0; attempt < BLOB_READ_RETRIES; attempt++) {
     try {
-      const result = await get(STORE_PATH, options);
-      if (result === null) return emptyStore();
-      return await parseBlobResult(result);
+      const { blobs } = await list({ prefix: STORE_PATH, token, limit: 1 });
+      const blob = blobs.find((b) => b.pathname === STORE_PATH);
+      if (!blob) return emptyStore();
+
+      const res = await fetch(blob.url, { cache: 'no-store' });
+      if (!res.ok) {
+        if (res.status === 404) return emptyStore();
+        throw new StoreReadError();
+      }
+      const text = await res.text();
+      if (!text.trim()) return emptyStore();
+      return normalizeStore(JSON.parse(text) as StoreData);
     } catch (err) {
+      if (err instanceof StoreReadError) throw err;
       if (isBlobNotFound(err)) return emptyStore();
       if (err instanceof SyntaxError) {
         throw new StoreReadError('저장 데이터 형식 오류예요. 관리자에게 문의해 주세요.');
@@ -140,17 +133,7 @@ async function readBlobJson(): Promise<StoreData> {
     }
   }
 
-  try {
-    const { blobs } = await list({ prefix: 'bookshare/', token: getBlobToken() });
-    const blob = blobs.find((item) => item.pathname === STORE_PATH);
-    if (!blob) return emptyStore();
-    const result = await get(blob.url, options);
-    if (result === null) return emptyStore();
-    return await parseBlobResult(result);
-  } catch (err) {
-    if (isBlobNotFound(err)) return emptyStore();
-    throw err;
-  }
+  throw new StoreReadError();
 }
 
 export async function readStore(): Promise<StoreData> {
@@ -213,30 +196,12 @@ export async function updateStore(mutator: (store: StoreData) => void): Promise<
     }
   }
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const base = await readStore();
-    const baseRevision = base.revision ?? 0;
-
-    const latest = await readStore();
-    if ((latest.revision ?? 0) !== baseRevision) {
-      await sleep(30 + Math.random() * 70 * (attempt + 1));
-      continue;
-    }
-
-    const working = normalizeStore(JSON.parse(JSON.stringify(latest)));
-    mutator(working);
-    working.revision = baseRevision + 1;
-    await writeStore(working);
-
-    const verify = await readStore();
-    if ((verify.revision ?? 0) === baseRevision + 1) {
-      return verify;
-    }
-
-    await sleep(40 + Math.random() * 80 * (attempt + 1));
-  }
-
-  throw new Error('잠시 후 다시 시도해 주세요');
+  // Vercel Blob은 원자적 연산이 없으므로 단순 read-mutate-write
+  const store = await readStore();
+  mutator(store);
+  store.revision = (store.revision ?? 0) + 1;
+  await writeStore(store);
+  return store;
 }
 
 export async function saveCoverBuffer(buffer: Buffer, contentType: string): Promise<string> {
