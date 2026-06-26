@@ -273,6 +273,29 @@
       color: var(--forest);
       border: 1.5px solid var(--forest);
     }
+    .btn-delete {
+      background: transparent;
+      color: var(--rose);
+      border: 1.5px solid var(--rose);
+      margin-top: 8px;
+    }
+    .delete-box {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--border);
+    }
+    .delete-box h4 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .delete-hint {
+      font-size: 0.8125rem;
+      color: var(--text-light);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
 
     /* ── 전시장 ── */
     .gallery-grid {
@@ -954,6 +977,13 @@
             <h4 style="color:var(--amber)">🎁 전달 완료</h4>
             <p>${esc(b.selectedApplicant)}님께 전달되었어요</p>
           </div>` : ''}
+        ${b.status === 'open' ? `
+          <div class="delete-box">
+            <h4>잘못 올리셨나요?</h4>
+            <p class="delete-hint">등록할 때 입력한 이름과 같아야 삭제할 수 있어요.</p>
+            <input class="form-input" type="text" id="deleteOwnerName" placeholder="등록자 이름" value="${esc(getStoredName())}" maxlength="20">
+            <button type="button" class="btn btn-delete" onclick="deleteBook('${b.id}')">🗑️ 이 책 삭제하기</button>
+          </div>` : ''}
       `;
       document.getElementById('detailOverlay').classList.add('open');
       document.getElementById('detailSheet').classList.add('open');
@@ -967,6 +997,27 @@
     }
     document.getElementById('detailClose').addEventListener('click', closeDetail);
     document.getElementById('detailOverlay').addEventListener('click', closeDetail);
+
+    async function deleteBook(bookId) {
+      const nameInput = document.getElementById('deleteOwnerName');
+      const ownerName = nameInput ? nameInput.value.trim() : '';
+      if (!ownerName) { toast('등록자 이름을 입력해 주세요', 'error'); return; }
+      if (!confirm('정말 이 책을 전시장에서 삭제할까요?')) return;
+
+      try {
+        if (!isDemo()) {
+          const res = await apiPost({ action: 'deleteBook', bookId, ownerName });
+          if (res.error) throw new Error(res.error);
+        } else {
+          books = books.filter(b => b.id !== bookId);
+        }
+        toast('책이 삭제되었어요', 'success');
+        closeDetail();
+        loadGallery();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
 
     // ── ① 등록 ──
     document.getElementById('coverInput').addEventListener('change', e => {
@@ -1004,6 +1055,7 @@
         if (!isDemo()) {
           const res = await apiPost(data);
           if (res.error) throw new Error(res.error);
+          if (res.coverWarning) toast(res.coverWarning, 'error');
         } else {
           books.unshift({ id: 'd' + Date.now(), ...data, coverUrl: coverBase64, status: 'open', selectedApplicant: '' });
         }

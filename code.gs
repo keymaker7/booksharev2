@@ -48,6 +48,7 @@ function doPost(e) {
       case 'addBook':         return res(addBook(d));
       case 'addApplicant':    return res(addApplicant(d));
       case 'selectApplicant': return res(selectApplicant(d));
+      case 'deleteBook':      return res(deleteBook(d));
       default:                return res({ error: 'unknown action' });
     }
   } catch (err) {
@@ -80,7 +81,17 @@ function getApplicants(bookId) {
 // ── 쓰기 ────────────────────────────────────────────
 
 function addBook(d) {
-  const coverUrl = d.coverBase64 ? uploadImage(d.coverBase64) : '';
+  let coverUrl = '';
+  let coverWarning = '';
+
+  if (d.coverBase64) {
+    try {
+      coverUrl = uploadImage(d.coverBase64);
+    } catch (err) {
+      coverWarning = '표지 사진은 저장되지 않았어요. (' + err.message + ')';
+    }
+  }
+
   const id = Utilities.getUuid();
   sheet('books').appendRow([
     id,
@@ -91,7 +102,7 @@ function addBook(d) {
     'open',
     ''
   ]);
-  return { success: true, id };
+  return { success: true, id, coverWarning: coverWarning || undefined };
 }
 
 function addApplicant(d) {
@@ -123,15 +134,80 @@ function selectApplicant(d) {
   return { error: '책 ID를 찾을 수 없어요' };
 }
 
+function deleteBook(d) {
+  if (!d.bookId || !d.ownerName) {
+    return { error: '책 ID와 등록자 이름이 필요해요' };
+  }
+
+  const books = sheetToObjects('books');
+  const book = books.find(b => b.id === d.bookId);
+  if (!book) return { error: '책을 찾을 수 없어요' };
+  if (book.ownerName !== String(d.ownerName).trim()) {
+    return { error: '등록할 때 입력한 이름과 같아야 삭제할 수 있어요' };
+  }
+
+  deleteRowsByField('applicants', 'bookId', d.bookId);
+  deleteRowsByField('books', 'id', d.bookId);
+  trashCoverFile(book.coverUrl);
+
+  return { success: true };
+}
+
 // ── 이미지 → Drive 업로드 ────────────────────────────
+
+function getCoverFolder() {
+  try {
+    const folder = DriveApp.getFolderById(FOLDER_ID);
+    folder.getName();
+    return folder;
+  } catch (_) {
+    const name = '마음나눔책장_표지';
+    const folders = DriveApp.getFoldersByName(name);
+    if (folders.hasNext()) return folders.next();
+    return DriveApp.createFolder(name);
+  }
+}
 
 function uploadImage(base64) {
   const clean = base64.replace(/^data:[^;]+;base64,/, '');
   const bytes = Utilities.base64Decode(clean);
-  const blob  = Utilities.newBlob(bytes, 'image/jpeg', 'cover_' + Date.now() + '.jpg');
-  const file  = DriveApp.getFolderById(FOLDER_ID).createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  if (bytes.length > 5 * 1024 * 1024) {
+    throw new Error('5MB 이하 이미지만 업로드할 수 있어요');
+  }
+
+  const blob = Utilities.newBlob(bytes, 'image/jpeg', 'cover_' + Date.now() + '.jpg');
+  let file;
+  try {
+    file = getCoverFolder().createFile(blob);
+  } catch (err) {
+    throw new Error('드라이브 저장 실패 — Apps Script 실행 계정이 폴더 소유자인지 확인해 주세요');
+  }
+
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (_) {}
+
   return 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
+}
+
+function trashCoverFile(coverUrl) {
+  if (!coverUrl) return;
+  const match = String(coverUrl).match(/[?&]id=([^&]+)/);
+  if (!match) return;
+  try {
+    DriveApp.getFileById(match[1]).setTrashed(true);
+  } catch (_) {}
+}
+
+function deleteRowsByField(sheetName, field, value) {
+  const s = sheet(sheetName);
+  const rows = s.getDataRange().getValues();
+  if (rows.length <= 1) return;
+  const col = rows[0].indexOf(field);
+  if (col < 0) return;
+  for (let i = rows.length - 1; i >= 1; i--) {
+    if (rows[i][col] === value) s.deleteRow(i + 1);
+  }
 }
 
 // ── 유틸 ────────────────────────────────────────────
