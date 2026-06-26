@@ -90,6 +90,10 @@ export default function BookshareApp() {
     });
   }, [books]);
 
+  useEffect(() => {
+    setDeleteOwnerName('');
+  }, [detailBook?.id]);
+
   const goPage = useCallback(
     (next: Page) => {
       setPage(next);
@@ -166,7 +170,17 @@ export default function BookshareApp() {
       setRegReason('');
       setCoverBlob(null);
       setCoverPreview('');
-      goPage('gallery');
+      if (data.book) {
+        setBooks((prev) => {
+          const next = [data.book, ...prev];
+          saveBooksCache(next);
+          return next;
+        });
+        setPage('gallery');
+        window.scrollTo(0, 0);
+      } else {
+        goPage('gallery');
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : '등록 실패', 'error');
     } finally {
@@ -295,7 +309,6 @@ export default function BookshareApp() {
       });
       showToast('책이 삭제되었어요', 'success');
       setDetailBook(null);
-      await loadBooks();
     } catch (err) {
       showToast(err instanceof Error ? err.message : '삭제 실패', 'error');
     }
