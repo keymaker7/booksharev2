@@ -48,4 +48,3 @@ jobs:
           branch: gh-pages
           clean: true
           single-commit: true
-          dotfiles: true
