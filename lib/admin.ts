@@ -1,4 +1,4 @@
-import { deleteCoverUrl, readStore, writeStore } from './store';
+import { deleteCoverUrl, readStore, updateStore } from './store';
 import type { Applicant, Book } from './types';
 
 export type AdminBook = Book & { applicantCount: number };
@@ -20,22 +20,31 @@ export async function getAdminDashboard() {
 }
 
 export async function adminDeleteBook(bookId: string) {
-  const store = await readStore();
-  const book = store.books.find((b) => b.id === bookId);
-  if (!book) throw new Error('책을 찾을 수 없어요');
-  await deleteCoverUrl(book.coverUrl);
-  await writeStore({
-    books: store.books.filter((b) => b.id !== bookId),
-    applicants: store.applicants.filter((a) => a.bookId !== bookId),
+  let coverUrl = '';
+
+  await updateStore((store) => {
+    const book = store.books.find((b) => b.id === bookId);
+    if (!book) throw new Error('책을 찾을 수 없어요');
+    coverUrl = book.coverUrl;
+    store.books = store.books.filter((b) => b.id !== bookId);
+    store.applicants = store.applicants.filter((a) => a.bookId !== bookId);
   });
+
+  await deleteCoverUrl(coverUrl);
 }
 
 export async function adminResetAll() {
-  const store = await readStore();
-  for (const book of store.books) {
-    await deleteCoverUrl(book.coverUrl);
+  const coverUrls: string[] = [];
+
+  await updateStore((store) => {
+    coverUrls.push(...store.books.map((b) => b.coverUrl));
+    store.books = [];
+    store.applicants = [];
+  });
+
+  for (const url of coverUrls) {
+    await deleteCoverUrl(url);
   }
-  await writeStore({ books: [], applicants: [] });
 }
 
 export function buildCsv(books: Book[], applicants: Applicant[]): string {
@@ -53,7 +62,7 @@ export function buildCsv(books: Book[], applicants: Applicant[]): string {
         '',
         esc(b.recommendation.slice(0, 200)),
         '',
-      ].join(',')
+      ].join(','),
     );
   }
 
@@ -69,7 +78,7 @@ export function buildCsv(books: Book[], applicants: Applicant[]): string {
         esc(a.applicantName),
         esc(a.reason.slice(0, 200)),
         esc(a.appliedAt),
-      ].join(',')
+      ].join(','),
     );
   }
 

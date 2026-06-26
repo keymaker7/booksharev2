@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { deleteCoverUrl, readStore, saveCoverBuffer, updateStore } from './store';
 import type { Applicant, Book } from './types';
+import { LIMITS, trimField } from './validation';
 
 export async function listBooks(): Promise<Book[]> {
   return (await readStore()).books;
@@ -33,10 +34,10 @@ export async function createBook(input: {
 }): Promise<Book> {
   const book: Book = {
     id: uuidv4(),
-    ownerName: input.ownerName.trim(),
-    title: input.title.trim(),
+    ownerName: trimField(input.ownerName, LIMITS.name, '이름'),
+    title: trimField(input.title, LIMITS.title, '제목'),
     coverUrl: input.coverUrl,
-    recommendation: input.recommendation.trim(),
+    recommendation: trimField(input.recommendation, LIMITS.recommendation, '추천 이유'),
     status: 'open',
     selectedApplicant: '',
   };
@@ -51,8 +52,8 @@ export async function addApplicant(input: {
   applicantName: string;
   reason: string;
 }): Promise<Applicant> {
-  const name = input.applicantName.trim();
-  const reason = input.reason.trim();
+  const name = trimField(input.applicantName, LIMITS.name, '이름');
+  const reason = trimField(input.reason, LIMITS.reason, '이유');
   let applicant!: Applicant;
 
   await updateStore((store) => {
@@ -81,16 +82,17 @@ export async function addApplicantsBatch(input: {
   applicantName: string;
   items: { bookId: string; reason: string }[];
 }): Promise<Applicant[]> {
-  const name = input.applicantName.trim();
-  if (!name) throw new Error('이름을 입력해 주세요');
+  const name = trimField(input.applicantName, LIMITS.name, '이름');
   if (!input.items.length) throw new Error('책을 하나 이상 선택해 주세요');
+  if (input.items.length > LIMITS.batchItems) {
+    throw new Error(`한 번에 ${LIMITS.batchItems}권까지만 신청할 수 있어요`);
+  }
 
   const created: Applicant[] = [];
 
   await updateStore((store) => {
     for (const item of input.items) {
-      const reason = item.reason.trim();
-      if (!reason) throw new Error('선택한 모든 책에 이유를 적어 주세요');
+      const reason = trimField(item.reason, LIMITS.reason, '이유');
 
       const book = store.books.find((b) => b.id === item.bookId);
       if (!book) throw new Error('책을 찾을 수 없어요');

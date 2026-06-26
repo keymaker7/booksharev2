@@ -17,6 +17,13 @@ const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
 
 const MAX_RETRIES = 10;
 
+export class StoreReadError extends Error {
+  constructor(message = '저장소를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.') {
+    super(message);
+    this.name = 'StoreReadError';
+  }
+}
+
 const emptyStore = (): StoreData => ({ revision: 0, books: [], applicants: [] });
 const useBlob = () => !!process.env.BLOB_READ_WRITE_TOKEN;
 
@@ -61,15 +68,24 @@ function releaseLocalLock() {
   }
 }
 
+function isBlobNotFound(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { name?: string; message?: string };
+  if (e.name === 'BlobNotFoundError') return true;
+  return /not found|does not exist/i.test(String(e.message || ''));
+}
+
 export async function readStore(): Promise<StoreData> {
   if (useBlob()) {
     try {
       const meta = await head(STORE_PATH);
       const res = await fetch(meta.url);
-      if (!res.ok) return emptyStore();
+      if (!res.ok) throw new StoreReadError();
       return normalizeStore((await res.json()) as StoreData);
-    } catch {
-      return emptyStore();
+    } catch (err) {
+      if (isBlobNotFound(err)) return emptyStore();
+      if (err instanceof StoreReadError) throw err;
+      throw new StoreReadError();
     }
   }
 
@@ -82,7 +98,7 @@ export async function readStore(): Promise<StoreData> {
   try {
     return normalizeStore(JSON.parse(fs.readFileSync(storePath, 'utf8')) as StoreData);
   } catch {
-    return emptyStore();
+    throw new StoreReadError('저장 파일이 손상되었어요. 관리자에게 문의해 주세요.');
   }
 }
 

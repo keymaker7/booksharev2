@@ -39,6 +39,7 @@ export default function BookshareApp() {
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [deleteOwnerName, setDeleteOwnerName] = useState('');
   const [celebrate, setCelebrate] = useState<{ owner: string; applicant: string } | null>(null);
+  const [selectingBookId, setSelectingBookId] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [usingCache, setUsingCache] = useState(false);
   const [cacheLabel, setCacheLabel] = useState<string | null>(null);
@@ -81,6 +82,13 @@ export default function BookshareApp() {
     if (ok) await loadBooks();
     else showToast('아직 서버에 연결되지 않았어요', 'error');
   }, [loadBooks, showToast]);
+
+  useEffect(() => {
+    setDetailBook((prev) => {
+      if (!prev) return null;
+      return books.find((b) => b.id === prev.id) ?? null;
+    });
+  }, [books]);
 
   const goPage = useCallback(
     (next: Page) => {
@@ -247,6 +255,7 @@ export default function BookshareApp() {
 
   async function handleSelectApplicant(bookId: string, applicantId: string, applicantName: string) {
     if (!confirm(`${applicantName}님에게 이 책을 전달할까요?`)) return;
+    setSelectingBookId(bookId);
     try {
       await apiJson(`/api/books/${bookId}/select`, {
         method: 'POST',
@@ -261,6 +270,8 @@ export default function BookshareApp() {
       if (ownerLoaded) await loadOwner();
     } catch (err) {
       showToast(err instanceof Error ? err.message : '선택 실패', 'error');
+    } finally {
+      setSelectingBookId(null);
     }
   }
 
@@ -588,7 +599,13 @@ export default function BookshareApp() {
             <br />
             마음이 가장 전달된 친구를 선택하세요.
           </p>
-          <button type="button" className="btn btn-outline" style={{ marginBottom: 20 }} onClick={loadOwner}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            style={{ marginBottom: 20 }}
+            disabled={ownerLoading || apiStatus === 'offline'}
+            onClick={loadOwner}
+          >
             내 책 불러오기
           </button>
           {ownerLoading ? (
@@ -627,9 +644,10 @@ export default function BookshareApp() {
                         <button
                           type="button"
                           className="btn btn-primary"
+                          disabled={selectingBookId === b.id || apiStatus === 'offline'}
                           onClick={() => handleSelectApplicant(b.id, a.id, a.applicantName)}
                         >
-                          이 친구에게 전달 🎁
+                          {selectingBookId === b.id ? '전달 중...' : '이 친구에게 전달 🎁'}
                         </button>
                       </div>
                     ))
