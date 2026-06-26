@@ -51,54 +51,112 @@ export async function addApplicant(input: {
   applicantName: string;
   reason: string;
 }): Promise<Applicant> {
-  const book = await getBook(input.bookId);
-  if (!book) throw new Error('책 ID를 찾을 수 없어요');
-  if (book.status !== 'open') throw new Error('이미 전달이 완료된 책이에요');
+  const name = input.applicantName.trim();
+  const reason = input.reason.trim();
+  let applicant!: Applicant;
 
-  const applicant: Applicant = {
-    id: uuidv4(),
-    bookId: input.bookId,
-    applicantName: input.applicantName.trim(),
-    reason: input.reason.trim(),
-    appliedAt: new Date().toISOString(),
-  };
   await updateStore((store) => {
+    const book = store.books.find((b) => b.id === input.bookId);
+    if (!book) throw new Error('책 ID를 찾을 수 없어요');
+    if (book.status !== 'open') throw new Error('이미 전달이 완료된 책이에요');
+    if (book.ownerName === name) throw new Error('본인이 등록한 책에는 신청할 수 없어요');
+    if (store.applicants.some((a) => a.bookId === input.bookId && a.applicantName === name)) {
+      throw new Error('이미 신청한 책이에요');
+    }
+
+    applicant = {
+      id: uuidv4(),
+      bookId: input.bookId,
+      applicantName: name,
+      reason,
+      appliedAt: new Date().toISOString(),
+    };
     store.applicants.push(applicant);
   });
+
   return applicant;
+}
+
+export async function addApplicantsBatch(input: {
+  applicantName: string;
+  items: { bookId: string; reason: string }[];
+}): Promise<Applicant[]> {
+  const name = input.applicantName.trim();
+  if (!name) throw new Error('이름을 입력해 주세요');
+  if (!input.items.length) throw new Error('책을 하나 이상 선택해 주세요');
+
+  const created: Applicant[] = [];
+
+  await updateStore((store) => {
+    for (const item of input.items) {
+      const reason = item.reason.trim();
+      if (!reason) throw new Error('선택한 모든 책에 이유를 적어 주세요');
+
+      const book = store.books.find((b) => b.id === item.bookId);
+      if (!book) throw new Error('책을 찾을 수 없어요');
+      if (book.status !== 'open') throw new Error(`「${book.title}」은(는) 이미 전달되었어요`);
+      if (book.ownerName === name) throw new Error('본인이 등록한 책에는 신청할 수 없어요');
+      if (store.applicants.some((a) => a.bookId === item.bookId && a.applicantName === name)) {
+        throw new Error(`「${book.title}」은(는) 이미 신청했어요`);
+      }
+
+      const applicant: Applicant = {
+        id: uuidv4(),
+        bookId: item.bookId,
+        applicantName: name,
+        reason,
+        appliedAt: new Date().toISOString(),
+      };
+      store.applicants.push(applicant);
+      created.push(applicant);
+    }
+  });
+
+  return created;
 }
 
 export async function selectApplicant(input: {
   bookId: string;
-  applicantName: string;
+  applicantId?: string;
+  applicantName?: string;
   ownerName: string;
 }): Promise<void> {
-  const book = await getBook(input.bookId);
-  if (!book) throw new Error('책 ID를 찾을 수 없어요');
-  if (book.ownerName !== input.ownerName.trim()) {
-    throw new Error('등록할 때 입력한 이름과 같아야 선택할 수 있어요');
-  }
-  if (book.status !== 'open') throw new Error('이미 전달이 완료된 책이에요');
+  const ownerName = input.ownerName.trim();
 
   await updateStore((store) => {
-    const target = store.books.find((b) => b.id === input.bookId);
-    if (target) {
-      target.status = 'closed';
-      target.selectedApplicant = input.applicantName.trim();
+    const book = store.books.find((b) => b.id === input.bookId);
+    if (!book) throw new Error('책 ID를 찾을 수 없어요');
+    if (book.ownerName !== ownerName) {
+      throw new Error('등록할 때 입력한 이름과 같아야 선택할 수 있어요');
     }
+    if (book.status !== 'open') throw new Error('이미 전달이 완료된 책이에요');
+
+    const applicant = input.applicantId
+      ? store.applicants.find((a) => a.id === input.applicantId && a.bookId === input.bookId)
+      : store.applicants.find(
+          (a) => a.bookId === input.bookId && a.applicantName === input.applicantName?.trim(),
+        );
+
+    if (!applicant) throw new Error('신청자를 찾을 수 없어요');
+
+    book.status = 'closed';
+    book.selectedApplicant = applicant.applicantName;
   });
 }
 
 export async function deleteBook(bookId: string, ownerName: string): Promise<void> {
-  const book = await getBook(bookId);
-  if (!book) throw new Error('책을 찾을 수 없어요');
-  if (book.ownerName !== ownerName.trim()) {
-    throw new Error('등록할 때 입력한 이름과 같아야 삭제할 수 있어요');
-  }
+  let coverUrl = '';
 
-  await deleteCoverUrl(book.coverUrl);
   await updateStore((store) => {
+    const book = store.books.find((b) => b.id === bookId);
+    if (!book) throw new Error('책을 찾을 수 없어요');
+    if (book.ownerName !== ownerName.trim()) {
+      throw new Error('등록할 때 입력한 이름과 같아야 삭제할 수 있어요');
+    }
+    coverUrl = book.coverUrl;
     store.applicants = store.applicants.filter((a) => a.bookId !== bookId);
     store.books = store.books.filter((b) => b.id !== bookId);
   });
+
+  await deleteCoverUrl(coverUrl);
 }

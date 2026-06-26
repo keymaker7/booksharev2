@@ -34,7 +34,13 @@ export default function AdminPanel() {
     try {
       const res = await apiFetch('/api/admin/dashboard', { headers: authHeaders(adminKey) });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || '불러오기 실패');
+      if (!res.ok) {
+        if (res.status === 401) {
+          sessionStorage.removeItem(SESSION_KEY);
+          setKey('');
+        }
+        throw new Error(json.error || '불러오기 실패');
+      }
       setData(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : '오류');
@@ -52,13 +58,27 @@ export default function AdminPanel() {
     }
   }, [load]);
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     const k = inputKey.trim();
     if (!k) return;
-    sessionStorage.setItem(SESSION_KEY, k);
-    setKey(k);
-    load(k);
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiFetch('/api/admin/dashboard', { headers: authHeaders(k) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '비밀번호가 맞지 않아요');
+      sessionStorage.setItem(SESSION_KEY, k);
+      setKey(k);
+      setData(json);
+    } catch (err) {
+      sessionStorage.removeItem(SESSION_KEY);
+      setKey('');
+      setData(null);
+      setError(err instanceof Error ? err.message : '로그인 실패');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleLogout() {

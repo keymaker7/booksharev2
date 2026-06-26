@@ -199,16 +199,15 @@ export default function BookshareApp() {
     setSubmitting(true);
     try {
       saveName(name);
-      for (const item of items) {
-        await apiJson(`/api/books/${item.bookId}/applicants`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ applicantName: name, reason: item.reason }),
-        });
-      }
+      await apiJson('/api/books/applications/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicantName: name, items }),
+      });
       showToast(`${items.length}권에 마음을 전했어요! 💌`, 'success');
       setSelectedApply(new Set());
       goPage('home');
+      await loadBooks();
     } catch (err) {
       showToast(err instanceof Error ? err.message : '전송 실패', 'error');
     } finally {
@@ -246,16 +245,20 @@ export default function BookshareApp() {
     }
   }
 
-  async function handleSelectApplicant(bookId: string, applicantName: string) {
+  async function handleSelectApplicant(bookId: string, applicantId: string, applicantName: string) {
     if (!confirm(`${applicantName}님에게 이 책을 전달할까요?`)) return;
     try {
       await apiJson(`/api/books/${bookId}/select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ applicantName, ownerName: ownerName.trim() }),
+        body: JSON.stringify({
+          applicantId,
+          ownerName: ownerName.trim(),
+        }),
       });
       setCelebrate({ owner: ownerName.trim(), applicant: applicantName });
       await loadBooks();
+      if (ownerLoaded) await loadOwner();
     } catch (err) {
       showToast(err instanceof Error ? err.message : '선택 실패', 'error');
     }
@@ -624,7 +627,7 @@ export default function BookshareApp() {
                         <button
                           type="button"
                           className="btn btn-primary"
-                          onClick={() => handleSelectApplicant(b.id, a.applicantName)}
+                          onClick={() => handleSelectApplicant(b.id, a.id, a.applicantName)}
                         >
                           이 친구에게 전달 🎁
                         </button>
@@ -679,7 +682,12 @@ export default function BookshareApp() {
                   placeholder="등록자 이름"
                   maxLength={20}
                 />
-                <button type="button" className="btn btn-delete" onClick={() => handleDeleteBook(detailBook.id)}>
+                <button
+                  type="button"
+                  className="btn btn-delete"
+                  disabled={apiStatus === 'offline'}
+                  onClick={() => handleDeleteBook(detailBook.id)}
+                >
                   🗑️ 이 책 삭제하기
                 </button>
               </div>
