@@ -85,11 +85,9 @@ function addBook(d) {
   let coverWarning = '';
 
   if (d.coverBase64) {
-    try {
-      coverUrl = uploadImage(d.coverBase64);
-    } catch (err) {
-      coverWarning = '표지 사진은 저장되지 않았어요. (' + err.message + ')';
-    }
+    const saved = saveCoverImage(d.coverBase64);
+    coverUrl = saved.url;
+    coverWarning = saved.warning;
   }
 
   const id = Utilities.getUuid();
@@ -153,45 +151,52 @@ function deleteBook(d) {
   return { success: true };
 }
 
-// ── 이미지 → Drive 업로드 ────────────────────────────
+// ── 표지 저장 (시트 우선 — DriveApp 불필요) ────────────
 
-function getCoverFolder() {
-  try {
-    const folder = DriveApp.getFolderById(FOLDER_ID);
-    folder.getName();
-    return folder;
-  } catch (_) {
-    const name = '마음나눔책장_표지';
-    const folders = DriveApp.getFoldersByName(name);
-    if (folders.hasNext()) return folders.next();
-    return DriveApp.createFolder(name);
+const MAX_COVER_URL_LEN = 50000;
+
+/** 표지를 Google Sheets 셀에 저장 (Drive 권한 없이 동작) */
+function saveCoverImage(base64) {
+  const dataUrl = toDataUrl(base64);
+  if (!dataUrl) return { url: '', warning: '' };
+
+  if (dataUrl.length <= MAX_COVER_URL_LEN) {
+    return { url: dataUrl, warning: '' };
   }
+
+  return {
+    url: '',
+    warning: '표지 사진이 너무 커요. 자동으로 줄였는데도 큽니다. 다시 촬영해 주세요.'
+  };
 }
 
-function uploadImage(base64) {
+function toDataUrl(base64) {
+  if (!base64) return '';
+  const s = String(base64).trim();
+  if (s.indexOf('data:') === 0) return s;
+  const clean = s.replace(/^data:[^;]+;base64,/, '');
+  return 'data:image/jpeg;base64,' + clean;
+}
+
+/** Drive 업로드 (선택 — 현재 미사용, DriveApp 권한 문제 회피) */
+function uploadImageToDrive(base64) {
   const clean = base64.replace(/^data:[^;]+;base64,/, '');
   const bytes = Utilities.base64Decode(clean);
-  if (bytes.length > 5 * 1024 * 1024) {
-    throw new Error('5MB 이하 이미지만 업로드할 수 있어요');
-  }
-
   const blob = Utilities.newBlob(bytes, 'image/jpeg', 'cover_' + Date.now() + '.jpg');
   let file;
   try {
-    file = getCoverFolder().createFile(blob);
+    file = DriveApp.createFile(blob);
   } catch (err) {
-    throw new Error('드라이브 저장 실패 — Apps Script 실행 계정이 폴더 소유자인지 확인해 주세요');
+    throw new Error('DriveApp: ' + err.message);
   }
-
   try {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   } catch (_) {}
-
   return 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
 }
 
 function trashCoverFile(coverUrl) {
-  if (!coverUrl) return;
+  if (!coverUrl || String(coverUrl).indexOf('data:') === 0) return;
   const match = String(coverUrl).match(/[?&]id=([^&]+)/);
   if (!match) return;
   try {

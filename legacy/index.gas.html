@@ -1020,19 +1020,53 @@
     }
 
     // ── ① 등록 ──
-    document.getElementById('coverInput').addEventListener('change', e => {
+    function compressCover(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const max = 480;
+          let w = img.width, h = img.height;
+          if (w > max || h > max) {
+            if (w > h) { h = Math.round(h * max / w); w = max; }
+            else { w = Math.round(w * max / h); h = max; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          let quality = 0.82;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+          while (dataUrl.length > 42000 && quality > 0.35) {
+            quality -= 0.07;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          if (dataUrl.length > 50000) {
+            reject(new Error('사진이 너무 커요. 조금 더 가까이서 다시 촬영해 주세요.'));
+            return;
+          }
+          resolve(dataUrl);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('사진을 불러올 수 없어요')); };
+        img.src = url;
+      });
+    }
+
+    document.getElementById('coverInput').addEventListener('change', async e => {
       const file = e.target.files[0];
       if (!file) return;
-      if (file.size > 5 * 1024 * 1024) { toast('5MB 이하만 가능해요', 'error'); return; }
-      const reader = new FileReader();
-      reader.onload = ev => {
-        coverBase64 = ev.target.result;
+      if (file.size > 8 * 1024 * 1024) { toast('8MB 이하 사진만 가능해요', 'error'); return; }
+      try {
+        coverBase64 = await compressCover(file);
         const img = document.getElementById('coverPreview');
         img.src = coverBase64;
         img.style.display = 'block';
         document.getElementById('coverPlaceholder').style.display = 'none';
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        toast(err.message, 'error');
+        e.target.value = '';
+      }
     });
 
     document.getElementById('registerForm').addEventListener('submit', async e => {
