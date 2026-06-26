@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { del, head, put } from '@vercel/blob';
+import { del, get, put, BlobNotFoundError } from '@vercel/blob';
 import type { Applicant, Book } from './types';
 
 export interface StoreData {
@@ -69,21 +69,32 @@ function releaseLocalLock() {
 }
 
 function isBlobNotFound(err: unknown): boolean {
+  if (err instanceof BlobNotFoundError) return true;
   if (!err || typeof err !== 'object') return false;
   const e = err as { name?: string; message?: string };
   if (e.name === 'BlobNotFoundError') return true;
   return /not found|does not exist/i.test(String(e.message || ''));
 }
 
+async function readBlobJson(): Promise<StoreData> {
+  const result = await get(STORE_PATH, { access: 'public' });
+  if (!result) return emptyStore();
+  if (result.statusCode !== 200 || !result.stream) {
+    throw new StoreReadError();
+  }
+  const text = await new Response(result.stream).text();
+  return normalizeStore(JSON.parse(text) as StoreData);
+}
+
 export async function readStore(): Promise<StoreData> {
   if (useBlob()) {
     try {
-      const meta = await head(STORE_PATH);
-      const res = await fetch(meta.url);
-      if (!res.ok) throw new StoreReadError();
-      return normalizeStore((await res.json()) as StoreData);
+      return await readBlobJson();
     } catch (err) {
       if (isBlobNotFound(err)) return emptyStore();
+      if (err instanceof SyntaxError) {
+        throw new StoreReadError('저장 데이터 형식 오류예요. 관리자에게 문의해 주세요.');
+      }
       if (err instanceof StoreReadError) throw err;
       throw new StoreReadError();
     }
