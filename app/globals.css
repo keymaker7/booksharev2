@@ -668,4 +668,37 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.error { background: var(--rose); }
-.toast.success { background: var(--forest); }
+    .toast.success { background: var(--forest); }
+
+    .status-banner {
+      margin: 0 20px 16px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+      line-height: 1.55;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .status-banner.warn {
+      background: var(--amber-soft);
+      color: var(--text);
+      border: 1px solid rgba(201, 133, 62, 0.25);
+    }
+    .status-banner.error {
+      background: var(--rose-soft);
+      color: var(--text);
+      border: 1px solid rgba(196, 92, 92, 0.25);
+    }
+    .status-banner button {
+      margin-left: auto;
+      flex-shrink: 0;
+      border: none;
+      background: var(--paper);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+    }

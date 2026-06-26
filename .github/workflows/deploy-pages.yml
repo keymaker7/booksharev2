@@ -32,7 +32,7 @@ jobs:
         run: npm run build
         env:
           GITHUB_PAGES: 'true'
-          NEXT_PUBLIC_API_URL: https://booksharev2.vercel.app
+          NEXT_PUBLIC_API_URLS: https://booksharev2.vercel.app
 
       - name: Ensure Jekyll is disabled
         run: touch out/.nojekyll

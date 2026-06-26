@@ -1,17 +1,16 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { apiUrl } from '@/lib/api-base';
+import { apiFetch, apiJson, checkApiHealth } from '@/lib/api-client';
+import { cacheUpdatedLabel, loadBooksCache, saveBooksCache } from '@/lib/book-cache';
 import type { Applicant, Book } from '@/lib/types';
 import { compressCover, getStoredName, saveName } from '@/lib/client-utils';
 
 type Page = 'home' | 'register' | 'gallery' | 'apply' | 'owner';
+type ApiStatus = 'checking' | 'online' | 'offline';
 
 async function fetchBooks(): Promise<Book[]> {
-  const res = await fetch(apiUrl('/api/books'));
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || '책 목록을 불러올 수 없어요');
-  return data;
+  return apiJson<Book[]>('/api/books');
 }
 
 export default function BookshareApp() {
@@ -40,6 +39,9 @@ export default function BookshareApp() {
   const [detailBook, setDetailBook] = useState<Book | null>(null);
   const [deleteOwnerName, setDeleteOwnerName] = useState('');
   const [celebrate, setCelebrate] = useState<{ owner: string; applicant: string } | null>(null);
+  const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
+  const [usingCache, setUsingCache] = useState(false);
+  const [cacheLabel, setCacheLabel] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string, type = '') => {
     setToast({ msg, type });
@@ -48,16 +50,37 @@ export default function BookshareApp() {
 
   const loadBooks = useCallback(async () => {
     setLoading(true);
+    setUsingCache(false);
     try {
       const data = await fetchBooks();
       setBooks(data);
+      saveBooksCache(data);
+      setApiStatus('online');
+      setCacheLabel(null);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : '오류가 발생했어요', 'error');
-      setBooks([]);
+      const cached = loadBooksCache();
+      if (cached.length) {
+        setBooks(cached);
+        setUsingCache(true);
+        setCacheLabel(cacheUpdatedLabel());
+        showToast('오프라인 — 마지막으로 저장된 목록을 보여드려요', 'error');
+      } else {
+        setBooks([]);
+        showToast(err instanceof Error ? err.message : '책 목록을 불러올 수 없어요', 'error');
+      }
+      setApiStatus('offline');
     } finally {
       setLoading(false);
     }
   }, [showToast]);
+
+  const refreshConnection = useCallback(async () => {
+    setApiStatus('checking');
+    const ok = await checkApiHealth();
+    setApiStatus(ok ? 'online' : 'offline');
+    if (ok) await loadBooks();
+    else showToast('아직 서버에 연결되지 않았어요', 'error');
+  }, [loadBooks, showToast]);
 
   const goPage = useCallback(
     (next: Page) => {
@@ -79,6 +102,7 @@ export default function BookshareApp() {
   );
 
   useEffect(() => {
+    checkApiHealth().then((ok) => setApiStatus(ok ? 'online' : 'offline'));
     loadBooks();
     const name = getStoredName();
     if (name) {
@@ -125,7 +149,7 @@ export default function BookshareApp() {
       form.append('recommendation', regReason.trim());
       if (coverBlob) form.append('cover', coverBlob, 'cover.jpg');
 
-      const res = await fetch(apiUrl('/api/books'), { method: 'POST', body: form });
+      const res = await apiFetch('/api/books', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
@@ -176,13 +200,11 @@ export default function BookshareApp() {
     try {
       saveName(name);
       for (const item of items) {
-        const res = await fetch(apiUrl(`/api/books/${item.bookId}/applicants`), {
+        await apiJson(`/api/books/${item.bookId}/applicants`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ applicantName: name, reason: item.reason }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
       }
       showToast(`${items.length}권에 마음을 전했어요! 💌`, 'success');
       setSelectedApply(new Set());
@@ -204,17 +226,13 @@ export default function BookshareApp() {
     setOwnerLoading(true);
     setOwnerLoaded(false);
     try {
-      const res = await fetch(apiUrl(`/api/books/by-owner?ownerName=${encodeURIComponent(name)}`));
-      const myBooks = await res.json();
-      if (!res.ok) throw new Error(myBooks.error);
-
-      const open = myBooks.filter((b: Book) => b.status === 'open');
+      const myBooks = await apiJson<Book[]>(`/api/books/by-owner?ownerName=${encodeURIComponent(name)}`);
+      const open = myBooks.filter((b) => b.status === 'open');
       setOwnerBooks(open);
 
       const apps: Record<string, Applicant[]> = {};
       for (const b of open) {
-        const aRes = await fetch(apiUrl(`/api/books/${b.id}/applicants`));
-        apps[b.id] = await aRes.json();
+        apps[b.id] = await apiJson<Applicant[]>(`/api/books/${b.id}/applicants`);
       }
       setOwnerApplicants(apps);
       await loadBooks();
@@ -231,13 +249,11 @@ export default function BookshareApp() {
   async function handleSelectApplicant(bookId: string, applicantName: string) {
     if (!confirm(`${applicantName}님에게 이 책을 전달할까요?`)) return;
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}/select`), {
+      await apiJson(`/api/books/${bookId}/select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ applicantName, ownerName: ownerName.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setCelebrate({ owner: ownerName.trim(), applicant: applicantName });
       await loadBooks();
     } catch (err) {
@@ -253,13 +269,11 @@ export default function BookshareApp() {
     }
     if (!confirm('정말 이 책을 전시장에서 삭제할까요?')) return;
     try {
-      const res = await fetch(apiUrl(`/api/books/${bookId}`), {
+      await apiJson(`/api/books/${bookId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ownerName: name }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       showToast('책이 삭제되었어요', 'success');
       setDetailBook(null);
       await loadBooks();
@@ -273,8 +287,30 @@ export default function BookshareApp() {
     return <img src={src} alt={alt} loading="lazy" />;
   }
 
+  function StatusBanner() {
+    if (apiStatus === 'online' && !usingCache) return null;
+    if (apiStatus === 'checking') {
+      return (
+        <div className="status-banner warn">
+          <span>⏳ 서버 연결 확인 중...</span>
+        </div>
+      );
+    }
+    return (
+      <div className={`status-banner${apiStatus === 'offline' ? ' error' : ' warn'}`}>
+        <span>
+          {usingCache
+            ? `📦 저장된 목록 표시 중${cacheLabel ? ` (${cacheLabel})` : ''}. 새로 등록·신청은 연결 후 가능해요.`
+            : '⚠️ 서버 연결이 불안정해요. Wi‑Fi를 바꾸거나 잠시 후 다시 시도해 주세요.'}
+        </span>
+        <button type="button" onClick={refreshConnection}>다시 연결</button>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
+      <StatusBanner />
       {/* 홈 */}
       <div className={`page${page === 'home' ? ' active' : ''}`}>
         <header className="home-hero">
@@ -371,7 +407,7 @@ export default function BookshareApp() {
                 maxLength={500}
               />
             </div>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || apiStatus === 'offline'}>
               {submitting ? '등록 중...' : '책 등록하기'}
             </button>
           </form>
@@ -394,6 +430,15 @@ export default function BookshareApp() {
             <div className="loading-box">
               <div className="spinner" />
               <p>전시장을 준비하고 있어요...</p>
+            </div>
+          ) : apiStatus === 'offline' && !books.length ? (
+            <div className="empty-box">
+              <div className="icon">📡</div>
+              <h3>서버에 연결할 수 없어요</h3>
+              <p>Wi‑Fi를 확인하거나 아래 &quot;다시 연결&quot;을 눌러 주세요.</p>
+              <button type="button" className="btn btn-outline" style={{ marginTop: 16 }} onClick={refreshConnection}>
+                다시 연결
+              </button>
             </div>
           ) : !books.length ? (
             <div className="empty-box">
@@ -500,7 +545,7 @@ export default function BookshareApp() {
                 type="button"
                 className="btn btn-rose"
                 style={{ marginTop: 20 }}
-                disabled={submitting}
+                disabled={submitting || apiStatus === 'offline'}
                 onClick={handleApplySubmit}
               >
                 {submitting ? '전송 중...' : '마음 전하기 💌'}
