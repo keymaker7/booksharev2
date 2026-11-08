@@ -16,15 +16,15 @@ export interface StoreData {
   applicants: Applicant[];
 }
 
-const STORE_PATH = 'bookshare/store.json';
+const STORE_LEGACY_PATH = 'bookshare/store.json'; // pre-versioned legacy blob
+const STORE_V_PREFIX = 'bookshare/store.v'; // store.v{N}.json — unique URL per revision bypasses CDN cache
 const dataDir = path.join(process.cwd(), 'data');
 const storePath = path.join(dataDir, 'store.json');
 const lockPath = path.join(dataDir, 'store.lock');
 const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
 
+const MAX_RETRIES = 10;
 const BLOB_READ_RETRIES = 4;
-
-let cachedBlobUrl: string | null = null;
 
 export class StoreReadError extends Error {
   constructor(message = '저장소를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.') {
@@ -100,32 +100,44 @@ function isTransientBlobError(err: unknown): boolean {
   return err instanceof BlobServiceRateLimited || err instanceof BlobServiceNotAvailable;
 }
 
-async function findBlobUrl(token: string): Promise<string | null> {
-  if (cachedBlobUrl) return cachedBlobUrl;
-  const { blobs } = await list({ prefix: STORE_PATH, token, limit: 1 });
-  const blob = blobs.find((b) => b.pathname === STORE_PATH);
-  if (!blob) return null;
-  cachedBlobUrl = blob.url;
-  return blob.url;
-}
-
 async function readBlobJson(): Promise<StoreData> {
   const token = getBlobToken();
 
   for (let attempt = 0; attempt < BLOB_READ_RETRIES; attempt++) {
     try {
-      const blobUrl = await findBlobUrl(token);
-      if (!blobUrl) return emptyStore();
+      // Prefer versioned blobs (store.v{N}.json).
+      // Each revision is a NEW URL → CDN has no cached entry for it → guaranteed fresh read.
+      const { blobs: vBlobs } = await list({ prefix: STORE_V_PREFIX, token });
 
-      const res = await fetch(blobUrl, { cache: 'no-store' });
-      if (!res.ok) {
-        if (res.status === 404) {
-          cachedBlobUrl = null;
-          return emptyStore();
+      let fetchUrl: string | null = null;
+
+      if (vBlobs.length > 0) {
+        const sorted = vBlobs
+          .map((b) => {
+            const m = b.pathname.match(/store\.v(\d+)\.json$/);
+            return { url: b.url, rev: m ? parseInt(m[1]) : 0 };
+          })
+          .sort((a, b) => b.rev - a.rev);
+        fetchUrl = sorted[0].url;
+      } else {
+        // Migration fallback: read legacy fixed-path blob
+        const { blobs: legacyBlobs } = await list({ prefix: STORE_LEGACY_PATH, token });
+        const legacy = legacyBlobs.find((b) => b.pathname === STORE_LEGACY_PATH);
+        fetchUrl = legacy?.url ?? null;
+      }
+
+      if (!fetchUrl) return emptyStore();
+
+      const resp = await fetch(fetchUrl);
+      if (!resp.ok) {
+        if (resp.status === 404) return emptyStore();
+        if (resp.status === 429 || resp.status >= 500) {
+          await sleep(250 * (attempt + 1));
+          continue;
         }
         throw new StoreReadError();
       }
-      const text = await res.text();
+      const text = await resp.text();
       if (!text.trim()) return emptyStore();
       return normalizeStore(JSON.parse(text) as StoreData);
     } catch (err) {
@@ -147,6 +159,24 @@ async function readBlobJson(): Promise<StoreData> {
   }
 
   throw new StoreReadError();
+}
+
+async function cleanupOldVersions(currentRevision: number, token: string): Promise<void> {
+  try {
+    const { blobs } = await list({ prefix: STORE_V_PREFIX, token });
+    const toDelete = blobs.filter((b) => {
+      const m = b.pathname.match(/store\.v(\d+)\.json$/);
+      return m ? parseInt(m[1]) < currentRevision - 3 : false;
+    });
+    if (toDelete.length > 0) {
+      await del(
+        toDelete.map((b) => b.url),
+        { token },
+      );
+    }
+  } catch {
+    // Non-critical cleanup
+  }
 }
 
 export async function readStore(): Promise<StoreData> {
@@ -180,13 +210,20 @@ export async function writeStore(store: StoreData) {
   const payload = normalizeStore(store);
 
   if (useBlobStorage()) {
-    await put(STORE_PATH, JSON.stringify(payload), {
-      ...blobOptions(),
+    const token = getBlobToken();
+    const revision = payload.revision ?? 1;
+    const vPath = `${STORE_V_PREFIX}${revision}.json`;
+
+    await put(vPath, JSON.stringify(payload), {
+      access: 'public',
+      token,
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
-      cacheControlMaxAge: 0,
+      cacheControlMaxAge: 31536000, // long cache OK — URL changes per revision
     });
+
+    cleanupOldVersions(revision, token).catch(() => {});
     return;
   }
 
@@ -210,12 +247,17 @@ export async function updateStore(mutator: (store: StoreData) => void): Promise<
     }
   }
 
-  // Vercel Blob은 원자적 연산이 없으므로 단순 read-mutate-write
-  const store = await readStore();
-  mutator(store);
-  store.revision = (store.revision ?? 0) + 1;
-  await writeStore(store);
-  return store;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const latest = await readStore();
+    const baseRevision = latest.revision ?? 0;
+    const working = normalizeStore(JSON.parse(JSON.stringify(latest)));
+    mutator(working);
+    working.revision = baseRevision + 1;
+    await writeStore(working);
+    return working;
+  }
+
+  throw new Error('잠시 후 다시 시도해 주세요');
 }
 
 export async function saveCoverBuffer(buffer: Buffer, contentType: string): Promise<string> {

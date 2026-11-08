@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { selectApplicant } from '@/lib/books';
-import { StoreReadError } from '@/lib/store';
 
 export const runtime = 'nodejs';
 
@@ -26,9 +25,6 @@ export async function POST(request: Request, { params }: Params) {
     });
     return NextResponse.json({ success: true });
   } catch (err) {
-    if (err instanceof StoreReadError) {
-      return NextResponse.json({ error: err.message }, { status: 503 });
-    }
     const message = err instanceof Error ? err.message : '선택에 실패했어요';
     return NextResponse.json({ error: message }, { status: 400 });
   }
